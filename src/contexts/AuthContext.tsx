@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       localStorage.removeItem('rt_token');
       localStorage.removeItem('rt_user');
-      window.location.href = '/login';
+      window.location.replace('/login');
     }
   };
 
