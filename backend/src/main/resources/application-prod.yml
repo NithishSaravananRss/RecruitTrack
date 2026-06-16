@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    io.recruittrack: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

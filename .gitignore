@@ -1,0 +1,20 @@
+# Maven
+backend/target/
+
+# Node
+node_modules/
+dist/
+
+# Logs
+*.log
+
+# TypeScript
+*.tsbuildinfo
+
+# Local tools
+jdk*/
+apache-maven*/
+
+# Environment
+.env
+.env.*

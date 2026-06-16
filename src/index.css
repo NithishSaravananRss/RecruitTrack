@@ -1,0 +1,88 @@
+/* External fonts — must be before @tailwind directives */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Geist', 'IBM Plex Sans', 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 14px;
+  }
+
+  body {
+    background-color: #F8FAFC;
+    color: #0F172A;
+    margin: 0;
+    padding: 0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+  }
+}
+
+@layer components {
+  /* Table styles */
+  .rt-table {
+    @apply w-full border-collapse;
+  }
+  .rt-table thead th {
+    @apply text-xs font-medium uppercase tracking-wide text-text-muted bg-gray-50 px-4 py-2.5 text-left border-b border-border;
+  }
+  .rt-table tbody tr {
+    @apply border-b border-border last:border-0 hover:bg-gray-50/50 transition-colors duration-100;
+  }
+  .rt-table tbody td {
+    @apply px-4 py-3 text-sm text-text;
+  }
+
+  /* Sidebar nav item */
+  .nav-item {
+    @apply flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-sidebar-text cursor-pointer transition-all duration-100;
+  }
+  .nav-item:hover {
+    @apply bg-sidebar-hover text-text;
+  }
+  .nav-item.active {
+    @apply bg-primary-light text-primary;
+  }
+  .nav-item.active svg {
+    @apply text-primary;
+  }
+
+  /* Stage badge */
+  .stage-applied { @apply bg-gray-100 text-gray-700; }
+  .stage-screening { @apply bg-yellow-50 text-yellow-700; }
+  .stage-technical { @apply bg-blue-50 text-blue-700; }
+  .stage-manager { @apply bg-purple-50 text-purple-700; }
+  .stage-hr { @apply bg-indigo-50 text-indigo-700; }
+  .stage-offer { @apply bg-green-50 text-green-700; }
+  .stage-hired { @apply bg-emerald-100 text-emerald-800; }
+  .stage-rejected { @apply bg-red-50 text-red-600; }
+}

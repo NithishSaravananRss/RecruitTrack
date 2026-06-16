@@ -1,0 +1,58 @@
+<configuration>
+
+    <springProperty scope="context" name="APP_ENV" source="spring.profiles.active" defaultValue="dev"/>
+    <springProperty scope="context" name="LOG_LEVEL" source="logging.level.io.recruittrack" defaultValue="INFO"/>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         DEV PROFILE — Readable console output with color
+         ═══════════════════════════════════════════════════════════ -->
+    <springProfile name="dev">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>
+                    %d{HH:mm:ss.SSS} %highlight(%-5level) [%cyan(%-20thread)] [%green(correlationId=%X{correlationId})] [%yellow(userId=%X{userId})] %logger{36} - %msg%n
+                </pattern>
+            </encoder>
+        </appender>
+
+        <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+        <logger name="io.recruittrack" level="${LOG_LEVEL}" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+        <logger name="org.springframework.security" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+        <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+    </springProfile>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         PROD PROFILE — JSON structured logs for log aggregation
+         ═══════════════════════════════════════════════════════════ -->
+    <springProfile name="prod">
+        <appender name="ROLLING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>/var/log/recruittrack/application.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>/var/log/recruittrack/application.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>10GB</totalSizeCap>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <includeMdcKeyName>correlationId</includeMdcKeyName>
+                <includeMdcKeyName>userId</includeMdcKeyName>
+                <includeMdcKeyName>userRole</includeMdcKeyName>
+            </encoder>
+        </appender>
+
+        <root level="WARN">
+            <appender-ref ref="ROLLING_FILE"/>
+        </root>
+        <logger name="io.recruittrack" level="INFO" additivity="false">
+            <appender-ref ref="ROLLING_FILE"/>
+        </logger>
+    </springProfile>
+
+</configuration>
