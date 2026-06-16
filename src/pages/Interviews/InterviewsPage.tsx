@@ -264,7 +264,7 @@ export default function InterviewsPage() {
               {!isLoading && allInterviews.length === 0 && (
                 <div className="py-12 text-center">
                   <div className="text-sm text-text-muted mb-2">No interviews found in the selected date range.</div>
-                  <Button variant="secondary" size="sm" onClick={() => { setViewDate(new Date()); navigate('/interviews', { replace: true }); }}>Clear Filters</Button>
+                  <Button variant="secondary" size="sm" onClick={() => { navigate('/interviews', { replace: true }); }}>Clear Filters</Button>
                 </div>
               )}
             </div>
