@@ -1,0 +1,90 @@
+name: Keep Render Backend Awake
+
+# 1. Trigger Definition
+on:
+  # Cron schedule: Runs every 10 minutes to prevent the Render Free Tier spin-down
+  schedule:
+    - cron: "*/10 * * * *"
+  # Allows manual triggering for testing or pre-warming the service
+  workflow_dispatch:
+
+# 2. Job Definition
+jobs:
+  ping-backend:
+    # Use ubuntu-latest. It comes pre-installed with curl, jq, and awk.
+    runs-on: ubuntu-latest
+    
+    # 3. Environment variables specific to the job for easier maintainability
+    env:
+      TARGET_URL: "https://recruittrack-kzo0.onrender.com/api/v1/health"
+      MAX_RETRIES: 3
+      RETRY_DELAY: 5
+      # 15-second timeout ensures the runner doesn't hang if the network drops
+      CURL_TIMEOUT: 15
+
+    steps:
+      - name: Ping and Validate Health Endpoint
+        # Using a multi-line bash script for robust error handling and parsing
+        run: |
+          echo "Current UTC Timestamp: $(date -u)"
+          echo "Request URL: $TARGET_URL"
+          echo "----------------------------------------"
+          
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+            echo "Attempt $i of $MAX_RETRIES..."
+            
+            # Execute curl:
+            # -s: Silent mode (no progress bar)
+            # -S: Show error on failure
+            # -m: Max time in seconds
+            # -o: Output response body to a file
+            # -w: Write out HTTP code and total time separated by a comma
+            HTTP_RESPONSE=$(curl -sS -m "$CURL_TIMEOUT" -o response.json -w "%{http_code},%{time_total}" "$TARGET_URL" || echo "CURL_ERROR")
+            
+            if [ "$HTTP_RESPONSE" = "CURL_ERROR" ]; then
+               echo "Result: Failure (Network error or timeout)."
+            else
+               # Parse the custom curl output
+               HTTP_STATUS=$(echo "$HTTP_RESPONSE" | cut -d',' -f1)
+               TIME_TOTAL=$(echo "$HTTP_RESPONSE" | cut -d',' -f2)
+               
+               # Convert seconds to milliseconds
+               TIME_MS=$(awk "BEGIN {print int($TIME_TOTAL * 1000)}")
+               
+               echo "HTTP Status Code: $HTTP_STATUS"
+               echo "Response Time: ${TIME_MS}ms"
+               
+               # Validate 200 OK
+               if [ "$HTTP_STATUS" -eq 200 ]; then
+                 # Validate JSON payload using jq. 
+                 # We check '.data.status' (as per your ApiResponse wrapper) and fallback to '.status'
+                 STATUS_VAL=$(jq -r '.data.status // .status' response.json 2>/dev/null)
+                 
+                 if [ "$STATUS_VAL" = "UP" ]; then
+                   echo "Result: Success (Backend is UP and healthy!)"
+                   exit 0
+                 else
+                   echo "Result: Failure"
+                   echo "Error: Backend responded with 200 OK, but status was not 'UP'. Received: '$STATUS_VAL'"
+                   echo "Raw Response: $(cat response.json)"
+                 fi
+               else
+                 echo "Result: Failure (Received HTTP $HTTP_STATUS)"
+               fi
+            fi
+            
+            # Wait before the next attempt, unless this was the last attempt
+            if [ $i -lt $MAX_RETRIES ]; then
+              echo "Waiting $RETRY_DELAY seconds..."
+              sleep $RETRY_DELAY
+              echo "----------------------------------------"
+            fi
+          done
+          
+          # If the loop finishes without 'exit 0', all retries failed.
+          echo "----------------------------------------"
+          echo "Warning: The backend could not be reached after $MAX_RETRIES attempts."
+          echo "Render Free tier may be deeply sleeping, starting up, or temporarily suspended due to quota limits."
+          
+          # Exit with 0 to prevent the workflow from being marked as 'Failed' in GitHub Actions (Requirement 9)
+          exit 0
