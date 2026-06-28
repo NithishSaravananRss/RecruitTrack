@@ -19,8 +19,8 @@ jobs:
       TARGET_URL: "https://recruittrack-kzo0.onrender.com/api/v1/health"
       MAX_RETRIES: 3
       RETRY_DELAY: 5
-      # 15-second timeout ensures the runner doesn't hang if the network drops
-      CURL_TIMEOUT: 15
+      # 240-second timeout ensures the runner doesn't hang if the network drops
+      CURL_TIMEOUT: 240
 
     steps:
       - name: Ping and Validate Health Endpoint
