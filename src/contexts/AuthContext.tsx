@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { UserRole } from '@/types';
 import { authApi } from '@/api/authApi';
+import { waitForBackendReady } from '@/lib/backendReadiness';
 
 interface AuthUser {
   id: string;
@@ -17,6 +18,8 @@ interface AuthContextValue {
   logout: () => void;
   isAuthenticated: boolean;
   isInitializing: boolean;
+  backendStatus: 'checking' | 'ready' | 'unavailable';
+  backendMessage: string;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -28,21 +31,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return stored ? JSON.parse(stored) : null;
   });
   const [isInitializing, setIsInitializing] = useState(true);
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'ready' | 'unavailable'>('checking');
+  const [backendMessage, setBackendMessage] = useState('Starting RecruitTrack server...');
 
   useEffect(() => {
-    const initAuth = async () => {
-      const token = localStorage.getItem('rt_token');
-      if (!token) {
-        setUser(null);
-        localStorage.removeItem('rt_user');
-        setIsInitializing(false);
-        return;
-      }
+    let cancelled = false;
 
+    const initAuth = async () => {
       try {
+        const isReady = await waitForBackendReady((snapshot) => {
+          if (cancelled) {
+            return;
+          }
+
+          setBackendStatus(snapshot.status);
+          if (snapshot.status === 'checking') {
+            setBackendMessage('The server is waking up. This may take a moment.');
+          } else if (snapshot.status === 'ready') {
+            setBackendMessage('');
+          } else {
+            setBackendMessage('RecruitTrack server is currently unavailable. Please try again.');
+          }
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!isReady) {
+          setUser(null);
+          localStorage.removeItem('rt_token');
+          localStorage.removeItem('rt_user');
+          return;
+        }
+
+        const token = localStorage.getItem('rt_token');
+        if (!token) {
+          setUser(null);
+          localStorage.removeItem('rt_user');
+          return;
+        }
+
         const response = await authApi.getCurrentUser();
         const apiUser = response.data;
-        
+
         const validatedUser = {
           id: apiUser.id,
           name: `${apiUser.firstName} ${apiUser.lastName}`,
@@ -51,23 +83,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           initials: `${apiUser.firstName[0]}${apiUser.lastName[0]}`,
           avatarUrl: apiUser.avatarUrl,
         };
-        
+
         setUser(validatedUser);
         localStorage.setItem('rt_user', JSON.stringify(validatedUser));
       } catch (e) {
-        setUser(null);
-        localStorage.removeItem('rt_token');
-        localStorage.removeItem('rt_user');
+        if (!cancelled) {
+          setUser(null);
+          localStorage.removeItem('rt_token');
+          localStorage.removeItem('rt_user');
+        }
         // Axios interceptor handles the actual redirect to /login
       } finally {
-        setIsInitializing(false);
+        if (!cancelled) {
+          setIsInitializing(false);
+        }
       }
     };
 
     initAuth();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
+    if (backendStatus !== 'ready') {
+      throw new Error('RecruitTrack server is currently unavailable. Please try again.');
+    }
+
     const response = await authApi.login(email, password);
     const apiUser = response.data.user;
     
@@ -100,11 +144,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   if (isInitializing) {
-    return <div className="min-h-screen flex items-center justify-center bg-background text-text-muted">Loading application...</div>;
+    if (backendStatus !== 'checking') {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background px-6">
+          <div className="w-full max-w-sm rounded-lg border border-border bg-white px-6 py-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 rounded-full border-2 border-border border-t-primary animate-spin" />
+              <div>
+                <div className="text-sm font-medium text-text">Loading application...</div>
+                <div className="text-sm text-text-muted">Preparing your session.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-6">
+        <div className="w-full max-w-md rounded-lg border border-border bg-white px-6 py-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-5 w-5 rounded-full border-2 border-border border-t-primary animate-spin" />
+            <div>
+              <div className="text-sm font-medium text-text">Starting RecruitTrack server...</div>
+              <div className="text-sm text-text-muted">{backendMessage || 'The server is waking up. This may take a moment.'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, isInitializing }}>
+    <AuthContext.Provider
+      value={{ user, login, logout, isAuthenticated: !!user, isInitializing, backendStatus, backendMessage }}
+    >
       {children}
     </AuthContext.Provider>
   );

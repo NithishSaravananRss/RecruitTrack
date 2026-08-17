@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import axios from 'axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { UserCheck, Mail, Lock, ChevronRight } from 'lucide-react';
@@ -15,10 +16,11 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, backendStatus, backendMessage } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formDisabled = loading || backendStatus !== 'ready';
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -26,13 +28,26 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: FormData) => {
+    if (formDisabled) {
+      return;
+    }
+
     try {
       setError(null);
       setLoading(true);
       await login(data.email, data.password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid credentials or server error');
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        if (!err.response || status === 502 || status === 503 || status === 504 || err.code === 'ECONNABORTED') {
+          setError('RecruitTrack server is currently unavailable. Please try again.');
+        } else {
+          setError(err.response?.data?.message || 'Invalid credentials or server error');
+        }
+      } else {
+        setError(err?.message || 'Invalid credentials or server error');
+      }
     } finally {
       setLoading(false);
     }
@@ -94,6 +109,13 @@ export default function LoginPage() {
           <h1 className="text-2xl font-semibold text-text mb-1">Sign in</h1>
           <p className="text-sm text-text-muted mb-7">Enter your credentials to access the platform.</p>
 
+          {backendStatus === 'unavailable' && (
+            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="font-medium">RecruitTrack server is currently unavailable. Please try again.</div>
+              {backendMessage && <div className="mt-1 text-red-600">{backendMessage}</div>}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {error && (
               <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
@@ -109,6 +131,7 @@ export default function LoginPage() {
                 <input
                   {...register('email')}
                   type="email"
+                  disabled={formDisabled}
                   className="w-full h-10 pl-9 pr-3 text-sm border border-border rounded-md bg-white placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                   placeholder="you@company.com"
                 />
@@ -129,6 +152,7 @@ export default function LoginPage() {
                 <input
                   {...register('password')}
                   type="password"
+                  disabled={formDisabled}
                   className="w-full h-10 pl-9 pr-3 text-sm border border-border rounded-md bg-white placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                   placeholder="••••••••"
                 />
@@ -141,6 +165,7 @@ export default function LoginPage() {
               variant="primary"
               size="lg"
               loading={loading}
+              disabled={formDisabled}
               className="w-full mt-2"
               iconRight={!loading ? <ChevronRight size={16} /> : undefined}
             >
